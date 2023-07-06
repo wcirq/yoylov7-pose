@@ -361,7 +361,28 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.stride = stride
         self.path = path
         self.kpt_label = kpt_label
-        self.flip_index = [0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15]
+
+        # 0 left_eye
+        # 1 right_eye
+        # 2 nose
+        # 3 left_ear
+        # 4 right_ear
+        # 5 left_front_elbow
+        # 6 right_front_elbow
+        # 7 left_back_elbow
+        # 8 right_back_elbow
+        # 9 left_front_knee
+        # 10 right_front_knee
+        # 11 left_back_knee
+        # 12 right_back_knee
+        # 13 left_front_paw
+        # 14 right_front_paw
+        # 15 left_back_paw
+        # 16 right_back_paw
+        # 17 throat
+        # 18 withers
+        # 19 tailbase
+        self.flip_index = [1, 0, 2, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15, 17, 18, 19]
 
         try:
             f = []  # image files
@@ -567,8 +588,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         else:
             # Load image
             img, (h0, w0), (h, w) = load_image(self, index)
-            if self.tidl_load:
-              h0, w0 = self.img_sizes[index][:-1]   # modify the oroginal size for tidll loaded images
+            if self. tidl_load:
+              h0, w0 = self.img_sizes[index][:-1]   #modify the oroginal size for tidll loaded images
             # Letterbox
             shape = self.batch_shapes[self.batch[index]] if self.rect else self.img_size  # final letterboxed shape
             before_shape = img.shape
@@ -983,10 +1004,10 @@ def random_perspective(img, targets=(), segments=(), degrees=10, translate=.1, s
             new[:, [0, 2]] = new[:, [0, 2]].clip(0, width)
             new[:, [1, 3]] = new[:, [1, 3]].clip(0, height)
             if kpt_label:
-                xy_kpts = np.ones((n * 17, 3))
-                xy_kpts[:, :2] = targets[:,5:].reshape(n*17, 2)  #num_kpt is hardcoded to 17
+                xy_kpts = np.ones((n * 20, 3))
+                xy_kpts[:, :2] = targets[:,5:].reshape(n*20, 2)  #num_kpt is hardcoded to 17
                 xy_kpts = xy_kpts @ M.T # transform
-                xy_kpts = (xy_kpts[:, :2] / xy_kpts[:, 2:3] if perspective else xy_kpts[:, :2]).reshape(n, 34)  # perspective rescale or affine
+                xy_kpts = (xy_kpts[:, :2] / xy_kpts[:, 2:3] if perspective else xy_kpts[:, :2]).reshape(n, 40)  # perspective rescale or affine
                 xy_kpts[targets[:,5:]==0] = 0
                 x_kpts = xy_kpts[:, list(range(0,34,2))]
                 y_kpts = xy_kpts[:, list(range(1,34,2))]

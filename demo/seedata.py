@@ -26,11 +26,12 @@ def read_label(path, image=None):
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
             keypoints = np.array(data[5:]).reshape((-1, 3))
-            for x, y, v in keypoints:
+            for j, (x, y, v) in enumerate(keypoints):
                 x = int(x*img_w)
                 y = int(y*img_h)
                 v = int(v)
                 cv2.circle(image, (x, y), i+2, colors[v], -1)
+                cv2.putText(image, f"{j}", (x, y), cv2.FONT_HERSHEY_COMPLEX, 0.3, (0, 255, 255), 1)
 
             cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 1)
         cv2.imshow("image", image)

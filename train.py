@@ -7,7 +7,6 @@ import time
 from copy import deepcopy
 from pathlib import Path
 from threading import Thread
-
 import numpy as np
 import torch.distributed as dist
 import torch.nn as nn
@@ -20,20 +19,36 @@ from torch.cuda import amp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+dog = 0
+if dog:
+    import test  # import test.py to get mAP after each epoch
+    from models.experimental import attempt_load
+    from models.yolo_dog import Model
+    from utils.autoanchor import check_anchors
+    from utils.datasets_dog import create_dataloader
+    from utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
+        fitness, strip_optimizer, get_latest_run, check_dataset, check_file, check_git_status, check_img_size, \
+        check_requirements, print_mutation, set_logging, one_cycle, colorstr
+    from utils.google_utils import attempt_download
+    from utils.loss_dog import ComputeLoss
+    from utils.plots_dog import plot_images, plot_labels, plot_results, plot_evolution
+    from utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first, is_parallel
+    from utils.wandb_logging.wandb_utils import WandbLogger, check_wandb_resume
+else:
+    import test  # import test.py to get mAP after each epoch
+    from models.experimental import attempt_load
+    from models.yolo import Model
+    from utils.autoanchor import check_anchors
+    from utils.datasets import create_dataloader
+    from utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
+        fitness, strip_optimizer, get_latest_run, check_dataset, check_file, check_git_status, check_img_size, \
+        check_requirements, print_mutation, set_logging, one_cycle, colorstr
+    from utils.google_utils import attempt_download
+    from utils.loss import ComputeLoss
+    from utils.plots import plot_images, plot_labels, plot_results, plot_evolution
+    from utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first, is_parallel
+    from utils.wandb_logging.wandb_utils import WandbLogger, check_wandb_resume
 
-import test  # import test.py to get mAP after each epoch
-from models.experimental import attempt_load
-from models.yolo import Model
-from utils.autoanchor import check_anchors
-from utils.datasets import create_dataloader
-from utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
-    fitness, strip_optimizer, get_latest_run, check_dataset, check_file, check_git_status, check_img_size, \
-    check_requirements, print_mutation, set_logging, one_cycle, colorstr
-from utils.google_utils import attempt_download
-from utils.loss import ComputeLoss
-from utils.plots import plot_images, plot_labels, plot_results, plot_evolution
-from utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first, is_parallel
-from utils.wandb_logging.wandb_utils import WandbLogger, check_wandb_resume
 
 logger = logging.getLogger(__name__)
 
@@ -342,18 +357,20 @@ def train(hyp, opt, device, tb_writer=None):
 
                 # Plot
                 if plots and ni < 33:
-                    f = save_dir / f'train_batch{epoch}_{ni}.jpg'  # filename
-                    plot_images(imgs, targets, paths, f, kpt_label=kpt_label)
-                    #Thread(target=plot_images, args=(imgs, targets, paths, f), daemon=True).start()
-                    # if tb_writer:
-                    #     tb_writer.add_image(f, result, dataformats='HWC', global_step=epoch)
-                    #     tb_writer.add_graph(torch.jit.trace(model, imgs, strict=False), [])  # add model graph
+                    if i == 0:
+                        f = save_dir / f'train_batch{epoch}_{ni}.jpg'  # filename
+                        plot_images(imgs, targets, paths, f, kpt_label=kpt_label)
+                        #Thread(target=plot_images, args=(imgs, targets, paths, f), daemon=True).start()
+                        # if tb_writer:
+                        #     tb_writer.add_image(f, result, dataformats='HWC', global_step=epoch)
+                        #     tb_writer.add_graph(torch.jit.trace(model, imgs, strict=False), [])  # add model graph
                 elif plots and ni == 10 and wandb_logger.wandb:
                     wandb_logger.log({"Mosaics": [wandb_logger.wandb.Image(str(x), caption=x.name) for x in
                                                   save_dir.glob('train*.jpg') if x.exists()]})
                 else:
-                    f = save_dir / f'train_batch{epoch}_{ni}.jpg'  # filename
-                    plot_images(imgs, targets, paths, f, kpt_label=kpt_label)
+                    if i==0:
+                        f = save_dir / f'train_batch{epoch}_{ni}.jpg'  # filename
+                        plot_images(imgs, targets, paths, f, kpt_label=kpt_label)
 
             # end batch ------------------------------------------------------------------------------------------------
         # end epoch ----------------------------------------------------------------------------------------------------
@@ -475,12 +492,13 @@ def train(hyp, opt, device, tb_writer=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default='yolov7-w6-person.pt', help='initial weights path')
-    parser.add_argument('--cfg', type=str, default='cfg/yolov7-w6-pose.yaml', help='model.yaml path')
-    parser.add_argument('--data', type=str, default='data/coco_kpts.yaml', help='data.yaml path')
-    parser.add_argument('--hyp', type=str, default='data/hyp.pose.yaml', help='hyperparameters path')
-    parser.add_argument('--epochs', type=int, default=300)
-    parser.add_argument('--batch-size', type=int, default=16, help='total batch size for all GPUs')
+    parser.add_argument('--weights', type=str, default=f'yolov7-w6-person./pt', help='initial weights path')
+    # parser.add_argument('--weights', type=str, default=f'runs/train/dog_exp2/weights/best.pt', help='initial weights path')
+    parser.add_argument('--cfg', type=str, default=f'{"cfg/yolov7-w6-dog-pose.yaml" if dog else "cfg/yolov7-w6-pose.yaml"}', help='model.yaml path')
+    parser.add_argument('--data', type=str, default=f'{"data/dog_kpts.yaml" if dog else "data/coco_kpts.yaml"}', help='data.yaml path')
+    parser.add_argument('--hyp', type=str, default=f'data/hyp.pose.yaml', help='hyperparameters path')
+    parser.add_argument('--epochs', type=int, default=9999)
+    parser.add_argument('--batch-size', type=int, default=20, help='total batch size for all GPUs')
     parser.add_argument('--img-size', nargs='+', type=int, default=[640, 640], help='[train, test] image sizes')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
     parser.add_argument('--resume', nargs='?', const=True, default=False, help='resume most recent training')
@@ -500,7 +518,7 @@ if __name__ == '__main__':
     parser.add_argument('--workers', type=int, default=8, help='maximum number of dataloader workers')
     parser.add_argument('--project', default='runs/train', help='save to project/name')
     parser.add_argument('--entity', default=None, help='W&B entity')
-    parser.add_argument('--name', default='exp', help='save to project/name')
+    parser.add_argument('--name', default=f'{"dog" if dog else ""}_exp', help='save to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--quad', action='store_true', help='quad dataloader')
     parser.add_argument('--linear-lr', action='store_true', help='linear LR')
